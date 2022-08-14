@@ -2,9 +2,8 @@ import { EventEmitter } from 'events'
 
 import { DEFAULT_URL, SENDER_TAG, REQUIRED_SCOPES, SDK_TAG } from '@/constants'
 import { SdkError } from '@/errors'
-import type { AuthorizationResponse, ResponseType } from '@/types'
+import type { ResponseType } from '@/types'
 
-import { BkpkEvents } from './events'
 import type { PopupOptions, BkpkEvent, BkpkError, PopupEvents } from './types'
 
 export { PopupOptions }
@@ -91,25 +90,25 @@ class Popup<TResponseType extends ResponseType> extends EventEmitter {
 
   private handleWindowMessage({ data, origin }: MessageEvent): unknown {
     if (origin !== this.url) return
-    const { event, params, sender } = this.parseMessage(data)
+    const message = this.parseMessage(data)
+    if (!message) return
+    const { event, params, sender } = message
     if (sender !== SENDER_TAG) return
     switch (event) {
-      case BkpkEvents.DEBUG:
+      case 'debug':
+        if (!this.verbose) return
         // eslint-disable-next-line no-console
-        return console.log(...(params as unknown[]))
+        return console.log(...params)
 
-      case BkpkEvents.ERROR:
-        return this.onBkpkError(params as BkpkError)
+      case 'error':
+        return this.onBkpkError(params)
 
-      case BkpkEvents.CLOSE:
+      case 'close':
         return this.onWindowClose()
 
-      case BkpkEvents.RESULT:
+      case 'result':
         this.onTerminalEvent()
-        return this.emit(
-          'result',
-          params as AuthorizationResponse<TResponseType>
-        )
+        return this.emit('result', params)
     }
   }
 
@@ -141,15 +140,11 @@ class Popup<TResponseType extends ResponseType> extends EventEmitter {
     window.removeEventListener('message', this.handleWindowMessage)
   }
 
-  private parseMessage(data: string): BkpkEvent {
+  private parseMessage(data: string): BkpkEvent<TResponseType> | null {
     try {
       return JSON.parse(data)
     } catch (error) {
-      return {
-        event: 'ignore',
-        params: null,
-        sender: 'none',
-      }
+      return null
     }
   }
 }
