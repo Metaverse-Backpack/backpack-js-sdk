@@ -16,7 +16,7 @@ export default class Client {
   public async post<TResponse>(
     endpoint: string,
     body: Record<string, unknown>,
-    authorized: boolean = false
+    authorized = false
   ): Promise<TResponse> {
     return await this.fetch<TResponse>('POST', endpoint, authorized, body)
   }
@@ -24,7 +24,7 @@ export default class Client {
   public async get<TResponse>(
     endpoint: string,
     params: Record<string, string>,
-    authorized: boolean = false
+    authorized = false
   ): Promise<TResponse> {
     const urlParams = new URLSearchParams(
       params as unknown as Record<string, string>
@@ -44,14 +44,20 @@ export default class Client {
     this._accessToken = accessToken
   }
 
+  // eslint-disable-next-line accessor-pairs
   public set expiresAt(expiresAt: Date) {
     this._expiresAt = expiresAt
+  }
+
+  private handleError(result: Response): void {
+    const { code, message } = result.json() as unknown as ErrorResponse
+    throw new ApiError(code, message)
   }
 
   private async fetch<TResponse>(
     method: HttpMethod,
     endpoint: string,
-    authenticated: boolean = false,
+    authenticated = false,
     body?: unknown
   ): Promise<TResponse> {
     try {
@@ -71,8 +77,8 @@ export default class Client {
 
       switch (result.status) {
         case 400:
-          const { code, message } = result.json() as unknown as ErrorResponse
-          throw new ApiError(code, message)
+          this.handleError(result)
+          break
         case 401:
           throw new SdkError('not-authorized')
         case 403:

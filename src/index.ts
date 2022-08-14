@@ -1,11 +1,10 @@
-import { SdkError } from './errors'
 import Client from './client'
 import { DEFAULT_API_URL } from './constants'
+import { SdkError } from './errors'
 import Popup from './popup'
 
 import {
-  AuthorizationOptions,
-  AuthorizationResponses,
+  AuthorizationResponse,
   Avatar,
   BkpkOptions,
   PaginationOptions,
@@ -14,7 +13,6 @@ import {
 } from './types'
 
 export default class Bkpk {
-  private readonly popup: Popup
   private readonly client: Client
 
   /**
@@ -26,25 +24,36 @@ export default class Bkpk {
     private readonly clientId: string,
     private readonly options: BkpkOptions = {}
   ) {
-    this.popup = new Popup(clientId, options)
     this.client = new Client(options.apiUrl ?? DEFAULT_API_URL)
   }
 
   /**
    * Prompts the user to authorize your application and returns access credentials
    *
-   * @param responseType Desired response type (token by default)
-   * @param options Authorization Options
+   * @param [responseType] Desired response type (token by default)
    */
-  public async authorize<T extends ResponseType = 'token'>({
-    responseType,
-    scopes = ['avatars:read'],
-    ...options
-  }: { responseType?: T } & AuthorizationOptions<T> = {}): Promise<
-    AuthorizationResponses<T>
-  > {
-    // @ts-ignore
-    return 'TODO' as AuthorizationResponses<T>
+  public async authorize<T extends ResponseType = 'token'>(
+    responseType?: T
+  ): Promise<AuthorizationResponse<T>> {
+    const popup = new Popup<T>(
+      this.clientId,
+      responseType ?? ('token' as T),
+      this.options
+    )
+
+    const result = await new Promise<AuthorizationResponse<T>>(
+      (resolve, reject) => {
+        popup.on('result', result => resolve(result))
+        popup.on('error', error => reject(error))
+      }
+    )
+
+    if (responseType === 'token') {
+      const { token, expires } = result as AuthorizationResponse<'token'>
+      this.setCredentials(token, expires)
+    }
+
+    return result
   }
 
   /**
@@ -53,7 +62,7 @@ export default class Bkpk {
    * @param accessToken A valid Bkpk API access token
    * @param expiresAt The expiration date of the access token
    */
-  public setCredentials(accessToken: string, expiresAt?: Date) {
+  public setCredentials(accessToken: string, expiresAt?: Date): void {
     this.client.accessToken = accessToken
     if (expiresAt) this.client.expiresAt = expiresAt
   }
@@ -61,11 +70,12 @@ export default class Bkpk {
   /**
    * Returns a paginated list of avatars for the current user
    *
-   * @param page
-   * @param options
+   * @param page Page number
+   * @param [options] Pagination options
+   * @param [options.limit] Number of avatars per page
    */
   public async getAvatars(
-    page: number = 1,
+    page = 1,
     { limit = 10 }: PaginationOptions = {}
   ): Promise<PaginationResponse<Avatar>> {
     return await this.client.get<PaginationResponse<Avatar>>('/avatars', {
@@ -85,8 +95,7 @@ export default class Bkpk {
 }
 
 export {
-  AuthorizationOptions,
-  AuthorizationResponses,
+  AuthorizationResponse,
   Avatar,
   BkpkOptions,
   PaginationOptions,

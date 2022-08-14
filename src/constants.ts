@@ -4,3 +4,9 @@ export const VERSION = '__WEBPACK_VERSION_STUB__'
 export const DEFAULT_API_URL = 'https://api.bkpk.io'
 
 export const DEFAULT_URL = `https://${VERSION}bkpk.io`
+
+export const SENDER_TAG = '@bkpk/frontend'
+
+export const SDK_TAG = '@bkpk/sdk'
+
+export const REQUIRED_SCOPES = ['backpacks:read', 'avatars:read']

@@ -1,3 +1,5 @@
+import { SDK_TAG } from './constants'
+
 export type SdkErrorCode =
   | 'expired-access-token'
   | 'no-access-token'
@@ -8,6 +10,8 @@ export type SdkErrorCode =
   | 'unhandled-server-error'
   | 'no-avatars-available'
   | 'user-action-required'
+  | 'window-closed'
+  | 'unhandled-bkpk-error'
 
 const MESSAGES: Record<SdkErrorCode, string> = {
   'expired-access-token':
@@ -23,11 +27,13 @@ const MESSAGES: Record<SdkErrorCode, string> = {
   'no-avatars-available': 'No avatars available for this user',
   'user-action-required':
     'A user action must trigger `Bkpk.authorize()` if `disableIframeFallback` is set',
+  'unhandled-bkpk-error': 'Unhandled Error on Bkpk Client',
+  'window-closed': 'Window closed before user authorized your application',
 }
 
 class BkpkError extends Error {
   constructor(message: string) {
-    super(`[@bkpk/sdk] ${message}`)
+    super(`[${SDK_TAG}] ${message}`)
   }
 }
 

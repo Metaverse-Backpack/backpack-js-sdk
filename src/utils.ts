@@ -1,4 +1,4 @@
-export const createToken = (length: number = 10): string => {
+export const createToken = (length = 10): string => {
   let result = ''
   const characters =
     'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
