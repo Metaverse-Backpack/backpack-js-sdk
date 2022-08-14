@@ -2,9 +2,16 @@ import { EventEmitter } from 'events'
 
 import { DEFAULT_URL, SENDER_TAG, REQUIRED_SCOPES, SDK_TAG } from '@/constants'
 import { SdkError } from '@/errors'
-import type { ResponseType } from '@/types'
+import type { AuthorizationResponse, ResponseType } from '@/types'
+import { createToken } from '@/utils'
 
-import type { PopupOptions, BkpkEvent, BkpkError, PopupEvents } from './types'
+import type {
+  PopupOptions,
+  BkpkEvent,
+  BkpkError,
+  PopupEvents,
+  BkpkResult,
+} from './types'
 
 export { PopupOptions }
 
@@ -29,6 +36,7 @@ class Popup<TResponseType extends ResponseType> extends EventEmitter {
   private popup: Window | null = null
   private readonly verbose: boolean
   private windowClosedCheckInterval: NodeJS.Timer | null = null
+  private readonly state: string | null = null
 
   constructor(
     private readonly clientId: string,
@@ -50,6 +58,7 @@ class Popup<TResponseType extends ResponseType> extends EventEmitter {
     this.url = url
     this.responseType = responseType
     this.verbose = verbose
+    if (responseType === 'code') this.state = createToken(10)
     this.loadPopup()
   }
 
@@ -59,13 +68,14 @@ class Popup<TResponseType extends ResponseType> extends EventEmitter {
   }
 
   private get authorizationUrl(): string {
-    const { clientId, url, responseType } = this
-    const params = new URLSearchParams({
+    const { clientId, url, responseType, state } = this
+    const params: Record<string, string> = {
       clientId,
       responseType,
       scopes: REQUIRED_SCOPES.join(','),
-    }).toString()
-    return `${url}/authorize?${params}`
+    }
+    if (state) params.state = state
+    return `${url}/authorize?${new URLSearchParams(params).toString()}`
   }
 
   private loadPopup(): void {
@@ -88,12 +98,10 @@ class Popup<TResponseType extends ResponseType> extends EventEmitter {
     window.addEventListener('message', this.handleWindowMessage)
   }
 
-  private handleWindowMessage({ data, origin }: MessageEvent): unknown {
-    if (origin !== this.url) return
-    const message = this.parseMessage(data)
+  private handleWindowMessage(messageEvent: MessageEvent): unknown {
+    const message = this.parseMessage(messageEvent)
     if (!message) return
-    const { event, params, sender } = message
-    if (sender !== SENDER_TAG) return
+    const { event, params } = message
     switch (event) {
       case 'debug':
         if (!this.verbose) return
@@ -107,9 +115,21 @@ class Popup<TResponseType extends ResponseType> extends EventEmitter {
         return this.onWindowClose()
 
       case 'result':
-        this.onTerminalEvent()
-        return this.emit('result', params)
+        return this.onResult(params)
     }
+  }
+
+  private onResult(params: BkpkResult<TResponseType>): void {
+    this.onTerminalEvent()
+    const result =
+      this.responseType === 'code'
+        ? {
+            state: this.state as string,
+            code: (params as BkpkResult<'code'>).code,
+          }
+        : params
+
+    this.emit('result', result as AuthorizationResponse<TResponseType>)
   }
 
   private onBkpkError(params: BkpkError): void {
@@ -140,9 +160,15 @@ class Popup<TResponseType extends ResponseType> extends EventEmitter {
     window.removeEventListener('message', this.handleWindowMessage)
   }
 
-  private parseMessage(data: string): BkpkEvent<TResponseType> | null {
+  private parseMessage({
+    data,
+    origin,
+  }: MessageEvent): BkpkEvent<TResponseType> | null {
+    if (origin !== this.url) return null
     try {
-      return JSON.parse(data)
+      const event = JSON.parse(data)
+      if (event.sender !== SENDER_TAG) return null
+      return event
     } catch (error) {
       return null
     }

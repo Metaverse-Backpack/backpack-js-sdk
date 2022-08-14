@@ -1,6 +1,19 @@
 import { SdkError } from '@/errors'
 import { AuthorizationResponse, ResponseType } from '@/types'
 
+interface CodeAuthorizationResult {
+  code: string
+}
+
+interface TokenAuthorizationResult {
+  token: string
+  expires: Date
+}
+
+export type BkpkResult<T extends ResponseType> = T extends 'token'
+  ? TokenAuthorizationResult
+  : CodeAuthorizationResult
+
 export interface PopupOptions {
   left?: number
   top?: number
@@ -48,7 +61,7 @@ interface OnloadEvent extends BaseEvent {
 
 interface ResultEvent<TResponseType extends ResponseType> extends BaseEvent {
   event: 'result'
-  params: AuthorizationResponse<TResponseType>
+  params: BkpkResult<TResponseType>
 }
 
 export type BkpkEvent<TResponseType extends ResponseType> =
