@@ -1,17 +1,12 @@
 import { EventEmitter } from 'events'
 
-import { DEFAULT_URL, SENDER_TAG, REQUIRED_SCOPES, SDK_TAG } from '@/constants'
-import { SdkError } from '@/errors'
-import type { AuthorizationResponse, ResponseType } from '@/types'
-import { createToken } from '@/utils'
+import { BkpkEvent, BkpkError, BkpkResult, BkpkEventParams } from '../bus'
+import { DEFAULT_URL, SENDER_TAG, REQUIRED_SCOPES, SDK_TAG } from '../constants'
+import { SdkError } from '../errors'
+import type { AuthorizationResponse, ResponseType } from '../types'
+import { createToken } from '../utils'
 
-import type {
-  PopupOptions,
-  BkpkEvent,
-  BkpkError,
-  PopupEvents,
-  BkpkResult,
-} from './types'
+import type { PopupOptions, PopupEvents, BaseEvent } from './types'
 
 export { PopupOptions }
 
@@ -98,27 +93,6 @@ class Popup<TResponseType extends ResponseType> extends EventEmitter {
     window.addEventListener('message', this.handleWindowMessage)
   }
 
-  private handleWindowMessage(messageEvent: MessageEvent): unknown {
-    const message = this.parseMessage(messageEvent)
-    if (!message) return
-    const { event, params } = message
-    switch (event) {
-      case 'debug':
-        if (!this.verbose) return
-        // eslint-disable-next-line no-console
-        return console.log(...params)
-
-      case 'error':
-        return this.onBkpkError(params)
-
-      case 'close':
-        return this.onWindowClose()
-
-      case 'result':
-        return this.onResult(params)
-    }
-  }
-
   private onResult(params: BkpkResult<TResponseType>): void {
     this.onTerminalEvent()
     const result =
@@ -160,17 +134,41 @@ class Popup<TResponseType extends ResponseType> extends EventEmitter {
     window.removeEventListener('message', this.handleWindowMessage)
   }
 
-  private parseMessage({
-    data,
-    origin,
-  }: MessageEvent): BkpkEvent<TResponseType> | null {
+  private handleWindowMessage({ data, origin }: MessageEvent): unknown {
     if (origin !== this.url) return null
     try {
-      const event = JSON.parse(data)
-      if (event.sender !== SENDER_TAG) return null
-      return event
-    } catch (error) {
-      return null
+      const { event, sender, params } = JSON.parse(data) as BaseEvent
+      if (sender !== SENDER_TAG) return
+      this.handleBkpkEvent(
+        event,
+        params as BkpkEventParams<BkpkEvent, TResponseType>
+      )
+    } catch (error) {}
+  }
+
+  private handleBkpkEvent<T extends BkpkEvent>(
+    event: T,
+    params: BkpkEventParams<T, TResponseType>
+  ): unknown {
+    type Event<TEvent extends BkpkEvent> = BkpkEventParams<
+      TEvent,
+      TResponseType
+    >
+
+    switch (event) {
+      case 'debug':
+        if (!this.verbose) return
+        // eslint-disable-next-line no-console
+        return console.log(...(params as Event<'debug'>))
+
+      case 'error':
+        return this.onBkpkError(params as Event<'error'>)
+
+      case 'close':
+        return this.onWindowClose()
+
+      case 'result':
+        return this.onResult(params as Event<'result'>)
     }
   }
 }

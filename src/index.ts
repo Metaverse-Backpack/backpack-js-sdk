@@ -12,6 +12,8 @@ import {
   ResponseType,
 } from './types'
 
+export { default as BkpkBus } from './bus'
+
 export default class Bkpk {
   private readonly client: Client
 
@@ -97,6 +99,7 @@ export default class Bkpk {
 export {
   AuthorizationResponse,
   Avatar,
+  Bkpk,
   BkpkOptions,
   PaginationOptions,
   PaginationResponse,
