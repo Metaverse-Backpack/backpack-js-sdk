@@ -9,6 +9,7 @@ export interface PopupOptions {
   height?: number
   url?: string
   verbose?: boolean
+  state?: string
 }
 
 export interface PopupEvents<TResponseType extends ResponseType> {

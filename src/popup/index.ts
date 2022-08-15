@@ -31,7 +31,7 @@ class Popup<TResponseType extends ResponseType> extends EventEmitter {
   private popup: Window | null = null
   private readonly verbose: boolean
   private windowClosedCheckInterval: NodeJS.Timer | null = null
-  private readonly state: string | null = null
+  private readonly state: string
 
   constructor(
     private readonly clientId: string,
@@ -43,6 +43,7 @@ class Popup<TResponseType extends ResponseType> extends EventEmitter {
       width = 375,
       url = DEFAULT_URL,
       verbose = false,
+      state,
     }: PopupOptions = {}
   ) {
     super()
@@ -53,7 +54,7 @@ class Popup<TResponseType extends ResponseType> extends EventEmitter {
     this.url = url
     this.responseType = responseType
     this.verbose = verbose
-    if (responseType === 'code') this.state = createToken(10)
+    this.state = state ?? createToken(10)
     this.loadPopup()
   }
 
@@ -69,7 +70,7 @@ class Popup<TResponseType extends ResponseType> extends EventEmitter {
       responseType,
       scopes: REQUIRED_SCOPES.join(','),
     }
-    if (state) params.state = state
+    if (responseType === 'code') params.state = state
     return `${url}/authorize?${new URLSearchParams(params).toString()}`
   }
 
@@ -98,7 +99,7 @@ class Popup<TResponseType extends ResponseType> extends EventEmitter {
     const result =
       this.responseType === 'code'
         ? {
-            state: this.state as string,
+            state: this.state,
             code: (params as BkpkResult<'code'>).code,
           }
         : params
