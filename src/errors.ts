@@ -12,6 +12,7 @@ export type SdkErrorCode =
   | 'user-action-required'
   | 'window-closed'
   | 'unhandled-bkpk-error'
+  | 'ssr-environment'
 
 const MESSAGES: Record<SdkErrorCode, string> = {
   'expired-access-token':
@@ -29,6 +30,7 @@ const MESSAGES: Record<SdkErrorCode, string> = {
     'A user action must trigger `Bkpk.authorize()` if `disableIframeFallback` is set',
   'unhandled-bkpk-error': 'Unhandled Error on Bkpk Client',
   'window-closed': 'Window closed before user authorized your application',
+  'ssr-environment': 'The Bkpk SDK will not work in an SSR environment',
 }
 
 class BkpkError extends Error {
