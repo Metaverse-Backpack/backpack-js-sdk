@@ -12,10 +12,8 @@ import {
   ResponseType,
 } from './types'
 
-export { default as BkpkBus } from './bus'
-
 export default class Bkpk {
-  private readonly client: Client
+  private readonly _client: Client | null = null
 
   /**
    *
@@ -26,7 +24,13 @@ export default class Bkpk {
     private readonly clientId: string,
     private readonly options: BkpkOptions = {}
   ) {
-    this.client = new Client(options.apiUrl ?? DEFAULT_API_URL)
+    if (!window) return // Support SSR
+    this._client = new Client(options.apiUrl ?? DEFAULT_API_URL)
+  }
+
+  private get client(): Client {
+    if (!this._client) throw new SdkError('ssr-environment')
+    return this._client
   }
 
   /**
@@ -51,8 +55,8 @@ export default class Bkpk {
     )
 
     if (responseType === 'token') {
-      const { token, expires } = result as AuthorizationResponse<'token'>
-      this.setCredentials(token, expires)
+      const { token, expiresAt } = result as AuthorizationResponse<'token'>
+      this.setCredentials(token, expiresAt)
     }
 
     return result

@@ -15,7 +15,7 @@ export interface CodeAuthorizationResponse {
 
 export interface TokenAuthorizationResponse {
   token: string
-  expires: Date
+  expiresAt: Date
 }
 
 export type AuthorizationResponse<T extends ResponseType> = T extends 'token'

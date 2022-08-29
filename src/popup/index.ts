@@ -1,12 +1,11 @@
 import { EventEmitter } from 'events'
 
-import { BkpkEvent, BkpkError, BkpkResult, BkpkEventParams } from '../bus'
-import { DEFAULT_URL, SENDER_TAG, REQUIRED_SCOPES, SDK_TAG } from '../constants'
+import { DEFAULT_URL, REQUIRED_SCOPES, SDK_TAG } from '../constants'
 import { SdkError } from '../errors'
 import type { AuthorizationResponse, ResponseType } from '../types'
 import { createToken } from '../utils'
 
-import type { PopupOptions, PopupEvents, BaseEvent } from './types'
+import type { PopupOptions, PopupEvents } from './types'
 
 export { PopupOptions }
 
@@ -30,7 +29,8 @@ class Popup<TResponseType extends ResponseType> extends EventEmitter {
   private readonly url: string
   private popup: Window | null = null
   private readonly verbose: boolean
-  private windowClosedCheckInterval: NodeJS.Timer | null = null
+  private windowClosedCheckId: number | null = null
+  private redirectCheckId: number | null = null
   private readonly state: string
 
   constructor(
@@ -63,12 +63,17 @@ class Popup<TResponseType extends ResponseType> extends EventEmitter {
     return `scrollbars=no,resizable=no,status=no,location=no,toolbar=no,menubar=no,width=${width},height=${height},left=${left},top=${top}`
   }
 
+  private get redirectUri(): string {
+    return window.location.origin
+  }
+
   private get authorizationUrl(): string {
-    const { clientId, url, responseType, state } = this
+    const { clientId, url, responseType, redirectUri, state } = this
     const params: Record<string, string> = {
-      clientId,
-      responseType,
-      scopes: REQUIRED_SCOPES.join(','),
+      client_id: clientId,
+      response_type: responseType,
+      redirect_uri: redirectUri,
+      scope: REQUIRED_SCOPES.join(','),
     }
     if (responseType === 'code') params.state = state
     return `${url}/authorize?${new URLSearchParams(params).toString()}`
@@ -87,31 +92,64 @@ class Popup<TResponseType extends ResponseType> extends EventEmitter {
 
     this.popup.location.href = this.authorizationUrl
 
-    this.windowClosedCheckInterval = setInterval(() => {
+    this.windowClosedCheckId = requestAnimationFrame(() => {
       if (this.popup?.closed) this.onWindowClose()
-    }, 1)
+    })
 
-    window.addEventListener('message', this.handleWindowMessage)
+    this.redirectCheckId = requestAnimationFrame(this.checkForRedirect)
   }
 
-  private onResult(params: BkpkResult<TResponseType>): void {
+  private checkForRedirect(): void {
+    const currentWindowUri = this.popup?.location.origin
+    if (currentWindowUri !== this.redirectUri) return
+
+    const query = new Proxy(new URLSearchParams(this.popup?.location.search), {
+      get: (searchParams, prop) => searchParams.get(prop as string),
+    })
+
     this.onTerminalEvent()
-    const result =
-      this.responseType === 'code'
-        ? {
-            state: this.state,
-            code: (params as BkpkResult<'code'>).code,
-          }
-        : params
 
-    this.emit('result', result as AuthorizationResponse<TResponseType>)
+    const [tokenType, accessToken, expiresIn, code, state, error] = [
+      'token_type',
+      'access_token',
+      'expires_in',
+      'code',
+      'state',
+      'error',
+    ].map(query.get)
+
+    if (error) return this.onError(error)
+    if (tokenType === 'token')
+      return this.onAccessToken(accessToken as string, expiresIn as string)
+    return this.onAuthorizationCode(code as string, state as string)
   }
 
-  private onBkpkError(params: BkpkError): void {
-    const { details, message } = params
+  private onAccessToken(token: string, expiresIn: string): void {
+    if (this.responseType !== 'token')
+      return this.onError('Invalid Response Type Returned from Bkpk')
+    const expiresAt = new Date(
+      new Date().getTime() + parseInt(expiresIn) * 1000
+    )
+
+    this.emit('result', {
+      token,
+      expiresAt,
+    } as unknown as AuthorizationResponse<TResponseType>)
+  }
+
+  private onAuthorizationCode(code: string, state: string): void {
+    if (this.responseType !== 'code')
+      return this.onError('Invalid Response Type Returned from Bkpk')
+
+    this.emit('result', {
+      code,
+      state,
+    } as unknown as AuthorizationResponse<TResponseType>)
+  }
+
+  private onError(errorMessage: string): void {
     // eslint-disable-next-line no-console
-    if (this.verbose) console.error(`${SDK_TAG} ${message}`, details)
-    this.onTerminalEvent()
+    if (this.verbose) console.error(`${SDK_TAG} ${errorMessage}`)
     this.emit('error', new SdkError('unhandled-bkpk-error'))
   }
 
@@ -122,55 +160,13 @@ class Popup<TResponseType extends ResponseType> extends EventEmitter {
 
   private onTerminalEvent(): void {
     // Stop polling for window closing
-    if (this.windowClosedCheckInterval) {
-      clearInterval(this.windowClosedCheckInterval)
-      this.windowClosedCheckInterval = null
+    if (this.windowClosedCheckId) {
+      cancelAnimationFrame(this.windowClosedCheckId)
+      this.windowClosedCheckId = null
     }
-
     // Clear popup
     this.popup?.close()
     this.popup = null
-
-    // Remove window message listener
-    window.removeEventListener('message', this.handleWindowMessage)
-  }
-
-  private handleWindowMessage({ data, origin }: MessageEvent): unknown {
-    if (origin !== this.url) return null
-    try {
-      const { event, sender, params } = JSON.parse(data) as BaseEvent
-      if (sender !== SENDER_TAG) return
-      this.handleBkpkEvent(
-        event,
-        params as BkpkEventParams<BkpkEvent, TResponseType>
-      )
-    } catch (error) {}
-  }
-
-  private handleBkpkEvent<T extends BkpkEvent>(
-    event: T,
-    params: BkpkEventParams<T, TResponseType>
-  ): unknown {
-    type Event<TEvent extends BkpkEvent> = BkpkEventParams<
-      TEvent,
-      TResponseType
-    >
-
-    switch (event) {
-      case 'debug':
-        if (!this.verbose) return
-        // eslint-disable-next-line no-console
-        return console.log(...(params as Event<'debug'>))
-
-      case 'error':
-        return this.onBkpkError(params as Event<'error'>)
-
-      case 'close':
-        return this.onWindowClose()
-
-      case 'result':
-        return this.onResult(params as Event<'result'>)
-    }
   }
 }
 
