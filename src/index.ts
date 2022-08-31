@@ -76,6 +76,7 @@ export default class Bkpk {
    * Returns list of avatars for the current user
    */
   public async getAvatars(): Promise<Avatar[]> {
+    // TODO: Update this to use a paginated endpoint or GraphQL endpoint
     const response = await this.client.get<BackpackOwnerResponse>(
       '/backpacks/owner'
     )
