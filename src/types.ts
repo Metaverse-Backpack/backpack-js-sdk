@@ -22,17 +22,6 @@ export type AuthorizationResponse<T extends ResponseType> = T extends 'token'
   ? TokenAuthorizationResponse
   : CodeAuthorizationResponse
 
-export interface PaginationResponse<T> {
-  pageCount: number
-  total: number
-  page: number
-  results: T[]
-}
-
-export interface PaginationOptions {
-  limit?: number
-}
-
 type ValueOf<T> = T[keyof T]
 
 export interface Avatar {
@@ -42,4 +31,20 @@ export interface Avatar {
   provider: keyof ProviderMetadata
   metadata: ValueOf<ProviderMetadata>
   userId: string
+}
+
+export interface BackpackItem {
+  id: string
+  content: string
+  source: string
+  category: string
+  metadata: Avatar
+}
+
+export interface BackpackOwnerResponse {
+  id: string
+  owner: string
+  backpackItems: BackpackItem[]
+  createdAt: Date
+  updatedAt: Date
 }

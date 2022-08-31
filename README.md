@@ -11,4 +11,5 @@ const bkpk = new Bkpk('Your Client ID')
 const { token, expiresAt } = await bkpk.authorize()
 
 const avatars = await bkpk.getAvatars()
+const avatar = await bkpk.getDefaultAvatar()
 ```
