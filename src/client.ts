@@ -23,7 +23,7 @@ export default class Client {
 
   public async get<TResponse>(
     endpoint: string,
-    params: Record<string, string>,
+    params: Record<string, string> = {},
     authorized = false
   ): Promise<TResponse> {
     const urlParams = new URLSearchParams(

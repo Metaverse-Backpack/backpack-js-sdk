@@ -7,8 +7,7 @@ import {
   AuthorizationResponse,
   Avatar,
   BkpkOptions,
-  PaginationOptions,
-  PaginationResponse,
+  BackpackOwnerResponse,
   ResponseType,
 } from './types'
 
@@ -74,38 +73,24 @@ export default class Bkpk {
   }
 
   /**
-   * Returns a paginated list of avatars for the current user
-   *
-   * @param page Page number
-   * @param [options] Pagination options
-   * @param [options.limit] Number of avatars per page
+   * Returns list of avatars for the current user
    */
-  public async getAvatars(
-    page = 1,
-    { limit = 10 }: PaginationOptions = {}
-  ): Promise<PaginationResponse<Avatar>> {
-    return await this.client.get<PaginationResponse<Avatar>>('/avatars', {
-      limit: `${limit}`,
-      page: `${page}`,
-    })
+  public async getAvatars(): Promise<Avatar[]> {
+    // TODO: Update this to use a paginated endpoint or GraphQL endpoint
+    const response = await this.client.get<BackpackOwnerResponse>(
+      '/backpacks/owner'
+    )
+    return response.backpackItems.map(({ metadata }) => metadata)
   }
 
   /**
    * Returns the default avatar for the current user
    */
   public async getDefaultAvatar(): Promise<Avatar> {
-    const { results } = await this.getAvatars()
-    if (!results.length) throw new SdkError('no-avatars-available')
-    return results[0]
+    const avatars = await this.getAvatars()
+    if (!avatars.length) throw new SdkError('no-avatars-available')
+    return avatars[0]
   }
 }
 
-export {
-  AuthorizationResponse,
-  Avatar,
-  Bkpk,
-  BkpkOptions,
-  PaginationOptions,
-  PaginationResponse,
-  ResponseType,
-}
+export { AuthorizationResponse, Avatar, Bkpk, BkpkOptions, ResponseType }
