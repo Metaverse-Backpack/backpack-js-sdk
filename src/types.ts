@@ -1,5 +1,3 @@
-import { ProviderMetadata } from '@bkpk/providers'
-
 import { PopupOptions } from './popup'
 
 export interface BkpkOptions extends PopupOptions {
@@ -22,15 +20,15 @@ export type AuthorizationResponse<T extends ResponseType> = T extends 'token'
   ? TokenAuthorizationResponse
   : CodeAuthorizationResponse
 
-type ValueOf<T> = T[keyof T]
-
 export interface Avatar {
-  uri: string
-  format: 'glb' | 'fbx' | 'vrm'
-  type: 'humanoid'
-  provider: keyof ProviderMetadata
-  metadata: ValueOf<ProviderMetadata>
-  userId: string
+  source: string
+  type: 'humanoid' | 'humanoid-male' | 'humanoid-female'
+  fileFormat: 'glb' | 'fbx' | 'vrm'
+  reference?: string
+  bodyType?: 'full-body' | 'half-body'
+  boneStructure?: {
+    head?: string
+  }
 }
 
 export interface BackpackItem {
