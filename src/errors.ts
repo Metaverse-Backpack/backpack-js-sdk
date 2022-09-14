@@ -26,8 +26,7 @@ const MESSAGES: Record<SdkErrorCode, string> = {
   'not-authorized':
     'Your access token is invalid, please reauthenticate the user',
   'no-avatars-available': 'No avatars available for this user',
-  'user-action-required':
-    'A user action must trigger `Bkpk.authorize()` if `disableIframeFallback` is set',
+  'user-action-required': 'A user action must trigger `Bkpk.authorize()`',
   'unhandled-bkpk-error': 'Unhandled Error on Bkpk Client',
   'window-closed': 'Window closed before user authorized your application',
   'ssr-environment': 'The Bkpk SDK will not work in an SSR environment',

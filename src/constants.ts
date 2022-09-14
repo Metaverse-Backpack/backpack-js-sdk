@@ -7,4 +7,4 @@ export const DEFAULT_URL = `https://${VERSION}bkpk.io`
 
 export const SDK_TAG = '@bkpk/sdk'
 
-export const REQUIRED_SCOPES = ['backpacks:read', 'avatars:read']
+export const REQUIRED_SCOPES = ['avatars:read']

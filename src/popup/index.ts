@@ -29,8 +29,8 @@ class Popup<TResponseType extends ResponseType> extends EventEmitter {
   private readonly url: string
   private popup: Window | null = null
   private readonly verbose: boolean
-  private windowClosedCheckId: number | null = null
-  private redirectCheckId: number | null = null
+  private windowClosedCheckInterval: NodeJS.Timer | null = null
+  private redirectCheckInterval: NodeJS.Timer | null = null
   private readonly state: string
 
   constructor(
@@ -76,7 +76,7 @@ class Popup<TResponseType extends ResponseType> extends EventEmitter {
       scope: REQUIRED_SCOPES.join(','),
     }
     if (responseType === 'code') params.state = state
-    return `${url}/authorize?${new URLSearchParams(params).toString()}`
+    return `${url}/oauth/authorize?${new URLSearchParams(params).toString()}`
   }
 
   private loadPopup(): void {
@@ -92,16 +92,20 @@ class Popup<TResponseType extends ResponseType> extends EventEmitter {
 
     this.popup.location.href = this.authorizationUrl
 
-    this.windowClosedCheckId = requestAnimationFrame(() => {
+    this.windowClosedCheckInterval = setInterval(() => {
       if (this.popup?.closed) this.onWindowClose()
     })
 
-    this.redirectCheckId = requestAnimationFrame(this.checkForRedirect)
+    this.redirectCheckInterval = setInterval(() => this.checkForRedirect())
   }
 
   private checkForRedirect(): void {
-    const currentWindowUri = this.popup?.location.origin
-    if (currentWindowUri !== this.redirectUri) return
+    try {
+      const currentWindowUri = this.popup?.location.origin
+      if (currentWindowUri !== this.redirectUri) return
+    } catch (error) {
+      return
+    }
 
     const query = new Proxy(new URLSearchParams(this.popup?.location.search), {
       get: (searchParams, prop) => searchParams.get(prop as string),
@@ -116,12 +120,13 @@ class Popup<TResponseType extends ResponseType> extends EventEmitter {
       'code',
       'state',
       'error',
-    ].map(query.get)
+      // @ts-expect-error This is a valid key
+    ].map(key => query[key as keyof typeof query] as string)
 
     if (error) return this.onError(error)
-    if (tokenType === 'token')
-      return this.onAccessToken(accessToken as string, expiresIn as string)
-    return this.onAuthorizationCode(code as string, state as string)
+    if (tokenType === 'Bearer')
+      return this.onAccessToken(accessToken, expiresIn)
+    return this.onAuthorizationCode(code, state)
   }
 
   private onAccessToken(token: string, expiresIn: string): void {
@@ -160,10 +165,10 @@ class Popup<TResponseType extends ResponseType> extends EventEmitter {
 
   private onTerminalEvent(): void {
     // Stop polling for window closing
-    if (this.windowClosedCheckId) {
-      cancelAnimationFrame(this.windowClosedCheckId)
-      this.windowClosedCheckId = null
-    }
+    if (this.windowClosedCheckInterval)
+      clearInterval(this.windowClosedCheckInterval)
+    if (this.redirectCheckInterval) clearInterval(this.redirectCheckInterval)
+
     // Clear popup
     this.popup?.close()
     this.popup = null
