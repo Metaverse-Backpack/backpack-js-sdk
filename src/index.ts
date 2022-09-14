@@ -9,6 +9,7 @@ import {
   BkpkOptions,
   BackpackOwnerResponse,
   ResponseType,
+  BackpackItem,
 } from './types'
 
 export default class Bkpk {
@@ -40,9 +41,11 @@ export default class Bkpk {
   public async authorize<T extends ResponseType = 'token'>(
     responseType?: T
   ): Promise<AuthorizationResponse<T>> {
+    const normalizedResponseType = responseType ?? ('token' as T)
+
     const popup = new Popup<T>(
       this.clientId,
-      responseType ?? ('token' as T),
+      normalizedResponseType,
       this.options
     )
 
@@ -53,7 +56,7 @@ export default class Bkpk {
       }
     )
 
-    if (responseType === 'token') {
+    if (normalizedResponseType === 'token') {
       const { token, expiresAt } = result as AuthorizationResponse<'token'>
       this.setCredentials(token, expiresAt)
     }
@@ -75,18 +78,20 @@ export default class Bkpk {
   /**
    * Returns list of avatars for the current user
    */
-  public async getAvatars(): Promise<Avatar[]> {
+  public async getAvatars(): Promise<BackpackItem[]> {
     // TODO: Update this to use a paginated endpoint or GraphQL endpoint
     const response = await this.client.get<BackpackOwnerResponse>(
-      '/backpacks/owner'
+      '/backpack/owner',
+      {},
+      true
     )
-    return response.backpackItems.map(({ metadata }) => metadata)
+    return response.backpackItems
   }
 
   /**
    * Returns the default avatar for the current user
    */
-  public async getDefaultAvatar(): Promise<Avatar> {
+  public async getDefaultAvatar(): Promise<BackpackItem> {
     const avatars = await this.getAvatars()
     if (!avatars.length) throw new SdkError('no-avatars-available')
     return avatars[0]
