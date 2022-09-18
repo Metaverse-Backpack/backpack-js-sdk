@@ -1,6 +1,6 @@
 {
   "name": "@metaverse-backpack/backpack-js-sdk",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "JavaScript SDK for Backpack",
   "private": false,
   "main": "dist/index.js",

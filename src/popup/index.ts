@@ -38,8 +38,8 @@ class Popup<TResponseType extends ResponseType> extends EventEmitter {
     private readonly responseType: TResponseType,
     {
       left = -500,
-      top = 150,
-      height = 350,
+      top = -150,
+      height = 550,
       width = 375,
       url = DEFAULT_URL,
       verbose = false,
@@ -60,7 +60,7 @@ class Popup<TResponseType extends ResponseType> extends EventEmitter {
 
   private get popupParams(): string {
     const { height, width, top, left } = this
-    return `scrollbars=no,resizable=no,status=no,location=no,toolbar=no,menubar=no,width=${width},height=${height},left=${left},top=${top}`
+    return `popup=yes,scrollbars=no,resizable=no,status=no,location=no,toolbar=no,menubar=no,width=${width},height=${height},screenX=${left},screenY=${top}`
   }
 
   private get redirectUri(): string {
@@ -79,7 +79,8 @@ class Popup<TResponseType extends ResponseType> extends EventEmitter {
     return `${url}/oauth/authorize?${new URLSearchParams(params).toString()}`
   }
 
-  private loadPopup(): void {
+  private loadPopup(recursed = false): void {
+    const reattemptPopupHandler = (): void => this.loadPopup(true)
     this.popup = window.open('', '_blank', this.popupParams)
     if (!this.popup || this.popup.closed || this.popup.closed === undefined) {
       try {
@@ -87,7 +88,19 @@ class Popup<TResponseType extends ResponseType> extends EventEmitter {
       } catch (error) {
         // do nothing
       }
-      throw new SdkError('user-action-required')
+
+      if (recursed) throw new SdkError('user-action-required')
+
+      // Try to load the popup the next time the user clicks on the page
+      window.addEventListener('click', reattemptPopupHandler)
+
+      return
+    }
+
+    try {
+      window.removeEventListener('click', reattemptPopupHandler)
+    } catch (error) {
+      // do nothing
     }
 
     this.popup.location.href = this.authorizationUrl
