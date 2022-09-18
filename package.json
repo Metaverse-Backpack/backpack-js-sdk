@@ -1,7 +1,7 @@
 {
-  "name": "@bkpk/sdk",
-  "version": "0.0.1",
-  "description": "JavaScript SDK for Bkpk",
+  "name": "@metaverse-backpack/backpack-js-sdk",
+  "version": "0.0.2",
+  "description": "JavaScript SDK for Backpack",
   "private": false,
   "main": "dist/index.js",
   "module": "dist/index.js",
@@ -26,16 +26,18 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com/Bkpkio/sdk.git"
+    "url": "git+ssh://git@github.com/Metaverse-Backpack/backpack-js-sdk.git"
   },
   "bugs": {
-    "url": "https://github.com/Bkpkio/sdk/issues"
+    "url": "https://github.com/Metaverse-Backpack/backpack-js-sdk/issues"
   },
-  "homepage": "https://github.com/Bkpkio/sdk",
+  "homepage": "https://github.com/Metaverse-Backpack/backpack-js-sdk",
   "scripts": {
     "clean": "./node_modules/.bin/rimraf dist workers",
     "build": "yarn clean && webpack",
     "lint": "./node_modules/.bin/eslint --fix .",
+    "prepublish": "npm run dist",
+    "dist": "npm run build",
     "pub": "yarn lint && yarn build && yarn publish"
   },
   "devDependencies": {
